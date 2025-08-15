@@ -29,3 +29,4 @@ starbridge-*.tar
 .DS_Store
 .env
 .recast
+.tool-versions

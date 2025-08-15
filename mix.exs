@@ -5,7 +5,7 @@ defmodule Starbridge.MixProject do
     [
       app: :starbridge,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.18.4",
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -32,13 +32,12 @@ defmodule Starbridge.MixProject do
     end)
     |> String.split("=")
 
-    run_discord = !!String.to_existing_atom(val)
-    |> IO.inspect
+    run_discord = !!String.to_atom(val)
 
     [
-      {:nostrum, "~> 0.6.1", runtime: run_discord},
+      {:nostrum, "~> 0.10.4", runtime: run_discord},
       {:exirc, "~> 2.0.0"},
-      {:dotenvy, "~> 0.7.0"},
+      {:dotenvy, "~> 1.1.0"},
       {:polyjuice_client, "~> 0.4.4"},
     ]
   end
