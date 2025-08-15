@@ -5,7 +5,7 @@ defmodule Starbridge.Server do
   alias Starbridge.Env
 
   def register(name, server) do
-    Logger.debug(name <> " client registered")
+    Logger.debug("#{name} client registered")
 
     GenServer.cast(__MODULE__, {:register_client, {name, server}})
   end
