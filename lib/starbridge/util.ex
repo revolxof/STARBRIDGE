@@ -60,7 +60,7 @@ defmodule Starbridge.Util do
 
   defp parse_platform_channel_pair(input) when is_binary(input) do
     [plat, chan] = input
-    |> String.split(":")
+    |> String.split(":", parts: 2)
 
     if plat == "irc" do
       Starbridge.Util.IRC.parse_channel(chan)
@@ -68,7 +68,7 @@ defmodule Starbridge.Util do
       chan
     end
 
-    {plat, chan}
+    {plat |> String.to_atom, chan}
   end
 
   defp parse_platform_channel_pair(input) when is_list(input) do

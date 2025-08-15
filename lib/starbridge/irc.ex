@@ -13,7 +13,7 @@ defmodule Starbridge.IRC do
     ExIRC.Client.add_handler client, self()
     ExIRC.Client.connect! client, env(:irc_address), env(:irc_port, :int)
 
-    Server.register("irc", __MODULE__)
+    Server.register(:irc, __MODULE__)
     {:ok, client}
   end
 
@@ -32,7 +32,7 @@ defmodule Starbridge.IRC do
 
   def handle_info({:received, msg, info, channel}, client) do
     Logger.debug("<#{info.nick}#{channel} @ #{env(:irc_address)}> #{msg}")
-    Server.send_message("irc", env(:irc_address), {channel, channel}, msg, info.nick)
+    Server.send_message(:irc, env(:irc_address), {channel, channel}, msg, info.nick)
     {:noreply, client}
   end
 
