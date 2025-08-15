@@ -2,50 +2,77 @@ defmodule Starbridge.Matrix do
   alias Starbridge.Server
   import Starbridge.Env
   require Starbridge.Logger, as: Logger
+
   use GenServer
 
   def start_link(_) do
-    {:ok, handler_pid} = GenServer.start_link(__MODULE__, nil, name: __MODULE__)
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
+  end
 
+  @impl true
+  def init(_) do
     {:ok, pid} =
       Polyjuice.Client.start_link(
         env(:matrix_address),
         access_token: env(:matrix_token),
         user_id: env(:matrix_user),
         storage: Polyjuice.Client.Storage.Ets.open(),
-        handler: handler_pid
+        handler: self()
       )
+
     client = Polyjuice.Client.get_client(pid)
+    Server.register(:matrix, __MODULE__)
 
-    :sys.replace_state(handler_pid, fn _ -> client end)
+    rooms =
+      env(:matrix_rooms)
+      |> String.split(",")
+      |> Enum.map(fn r ->
+        ret = Polyjuice.Client.Room.join(client, r, [env(:matrix_address)])
 
-    {:ok, handler_pid}
+        case ret do
+          {:ok, room_id} ->
+            Logger.debug("Joined #{room_id}.")
+            room_id
+
+          _ ->
+            Logger.error("Failed to join #{r}: #{inspect(ret)}")
+        end
+      end)
+
+    {:ok, {env(:matrix_address), client, rooms, false}}
   end
 
   @impl true
-  def init(client) do
-    Server.register("matrix", __MODULE__)
+  def handle_info(message, state) do
+    {addr, client, rooms, synced} = state
 
-    env(:matrix_rooms)
-    |> String.split(",")
-    |> Enum.map(fn r ->
-      ret = Polyjuice.Client.Room.join(client, r, [env(:matrix_address)])
-      case ret do
-        {:ok, room_id} ->
-          Logger.debug("Joined #{room_id}.")
+    sync_completed =
+      case message do
+        {:polyjuice_client, :message, {channel_id, msg}} ->
+          with true <- synced, true <- Enum.member?(rooms, channel_id) do
+            content = msg["content"]["body"]
+            sender = msg["sender"]
+            Logger.debug("Received message from #{sender} in #{channel_id}: #{content}")
+            Server.send_message(:matrix, addr, {channel_id, channel_id}, content, sender)
+
+            synced
+          else
+            _ -> synced
+          end
+
+        {:polyjuice_client, :initial_sync_completed} ->
+          true
 
         _ ->
-          Logger.error("Failed to join #{r}: #{inspect(ret)}")
+          synced
       end
-    end)
-
-    {:ok, client}
+    {:noreply, {addr, client, rooms, sync_completed}}
   end
 
   @impl true
-  def handle_info(msg, client) do
-    Logger.debug("Received unknown message")
-    IO.inspect(msg)
-    {:noreply, client}
+  def handle_cast({:send_message, {target_channel, content}}, state) do
+    {_, client, _, _} = state
+    Polyjuice.Client.Room.send_message(client, target_channel, content)
+    {:noreply, state}
   end
 end
