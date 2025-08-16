@@ -5,85 +5,51 @@ defmodule Starbridge.Logger do
     Logger.log(level, provider <> " " <> message)
   end
 
-  # ---
-
-  defmacro debug(message) do
+  defmacro resolve_caller do
     quote do
       {caller_mod, _calling_func, _calling_func_arity, [file: _file, line: _line]} =
         Process.info(self(), :current_stacktrace) |> elem(1) |> Enum.fetch!(1)
 
-      caller_mod =
-        caller_mod
+      caller_mod
         |> Atom.to_string()
         |> String.split(".")
         |> Enum.at(-1)
+    end
+  end
 
-      provider = "\t[*BRIDGE : #{caller_mod}]"
-      Starbridge.Logger.log(:debug, provider, unquote(message))
+  defmacro provider do
+    quote do
+      "\t[*BRIDGE : #{Starbridge.Logger.resolve_caller()}]"
+    end
+  end
+
+  defmacro debug(message) do
+    quote do
+      Starbridge.Logger.log(:debug, Starbridge.Logger.provider, unquote(message))
     end
   end
 
   defmacro info(message) do
     quote do
-      {caller_mod, _calling_func, _calling_func_arity, [file: _file, line: _line]} =
-        Process.info(self(), :current_stacktrace) |> elem(1) |> Enum.fetch!(1)
-
-      caller_mod =
-        caller_mod
-        |> Atom.to_string()
-        |> String.split(".")
-        |> Enum.at(-1)
-
-      provider = "\t[*BRIDGE : #{caller_mod}]"
-      Starbridge.Logger.log(:info, provider, unquote(message))
+      Starbridge.Logger.log(:info, Starbridge.Logger.provider, unquote(message))
     end
   end
 
   defmacro warn(message) do
     quote do
-      {caller_mod, _calling_func, _calling_func_arity, [file: _file, line: _line]} =
-        Process.info(self(), :current_stacktrace) |> elem(1) |> Enum.fetch!(1)
-
-      caller_mod =
-        caller_mod
-        |> Atom.to_string()
-        |> String.split(".")
-        |> Enum.at(-1)
-
-      provider = "\t[*BRIDGE : #{caller_mod}]"
-      Starbridge.Logger.log(:warn, provider, unquote(message))
+      Starbridge.Logger.log(:warn, Starbridge.Logger.provider, unquote(message))
     end
   end
 
   defmacro error(message) do
     quote do
-      {caller_mod, _calling_func, _calling_func_arity, [file: _file, line: _line]} =
-        Process.info(self(), :current_stacktrace) |> elem(1) |> Enum.fetch!(1)
-
-      caller_mod =
-        caller_mod
-        |> Atom.to_string()
-        |> String.split(".")
-        |> Enum.at(-1)
-
-      provider = "\t[*BRIDGE : #{caller_mod}]"
-      Starbridge.Logger.log(:error, provider, unquote(message))
+      Starbridge.Logger.log(:error, Starbridge.Logger.provider, unquote(message))
     end
   end
 
   defmacro notice(message) do
     quote do
-      {caller_mod, _calling_func, _calling_func_arity, [file: _file, line: _line]} =
-        Process.info(self(), :current_stacktrace) |> elem(1) |> Enum.fetch!(1)
-
-      caller_mod =
-        caller_mod
-        |> Atom.to_string()
-        |> String.split(".")
-        |> Enum.at(-1)
-
-      provider = "\t[*BRIDGE : #{caller_mod}]"
-      Starbridge.Logger.log(:notice, provider, unquote(message))
+      Starbridge.Logger.log(:notice, Starbridge.Logger.provider, unquote(message))
     end
   end
 end

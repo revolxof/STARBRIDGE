@@ -4,12 +4,14 @@ defmodule Starbridge.IRC do
   require Starbridge.Logger, as: Logger
   use GenServer
 
-  def start_link(client) do
-    GenServer.start_link(__MODULE__, client, name: __MODULE__)
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 
   @impl true
-  def init(client) do
+  def init(_) do
+    {:ok, client} = ExIRC.start_link!
+
     ExIRC.Client.add_handler client, self()
     ExIRC.Client.connect! client, env(:irc_address), env(:irc_port, :int)
 
@@ -51,7 +53,7 @@ defmodule Starbridge.IRC do
   end
 
   def handle_info({:unrecognized, name, msg}, client) do
-    Logger.info("#{name}: #{msg.args |> Enum.join(" ")}")
+    Logger.info("#{name}: #{msg.args |> Enum.join(" ") |> String.trim("\r\n")}")
     {:noreply, client}
   end
 

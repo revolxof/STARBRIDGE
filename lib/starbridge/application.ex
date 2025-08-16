@@ -3,18 +3,20 @@ defmodule Starbridge.Application do
   import Starbridge.Env
 
   @impl true
-  def start(_ty, _args) do
-    # :dbg.start
-    # :dbg.tracer
-    # :dbg.tp(:gen_tcp, :send, 2, [])
-    # :dbg.p(:all, :c)
+  def start(_ty, args) do
+    {parsed, _, _} = OptionParser.parse(args, strict: ["tcp-debug": :boolean])
 
-    {:ok, client} = ExIRC.start_link!
+    if parsed[:"tcp-debug"] do
+      :dbg.start()
+      :dbg.tracer()
+      :dbg.tp(:gen_tcp, :send, 2, [])
+      :dbg.p(:all, :c)
+    end
 
     client_modules = [
       {env(:discord_enabled, :boolean), Starbridge.Discord},
-      {env(:irc_enabled, :boolean),    {Starbridge.IRC, client}},
-      {env(:matrix_enabled, :boolean),  Starbridge.Matrix},
+      {env(:irc_enabled, :boolean), Starbridge.IRC},
+      {env(:matrix_enabled, :boolean), Starbridge.Matrix}
     ]
 
     children =

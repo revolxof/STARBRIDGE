@@ -23,8 +23,13 @@ defmodule Starbridge.Matrix do
     client = Polyjuice.Client.get_client(pid)
     Server.register(:matrix, __MODULE__)
 
-    rooms =
-      env(:matrix_rooms)
+    rooms = join_rooms(client)
+
+    {:ok, {env(:matrix_address), client, rooms, false}}
+  end
+
+  defp join_rooms(client) do
+    env(:matrix_rooms)
       |> String.split(",")
       |> Enum.map(fn r ->
         ret = Polyjuice.Client.Room.join(client, r, [env(:matrix_address)])
@@ -38,8 +43,6 @@ defmodule Starbridge.Matrix do
             Logger.error("Failed to join #{r}: #{inspect(ret)}")
         end
       end)
-
-    {:ok, {env(:matrix_address), client, rooms, false}}
   end
 
   @impl true
@@ -66,6 +69,7 @@ defmodule Starbridge.Matrix do
         _ ->
           synced
       end
+
     {:noreply, {addr, client, rooms, sync_completed}}
   end
 
