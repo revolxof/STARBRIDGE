@@ -20,6 +20,12 @@ defmodule Starbridge.MixProject do
     ]
   end
 
+  defp package do
+    [
+      licenses: ["AGPL-3.0-or-later"]
+    ]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     ["DISCORD_ENABLED", val] = File.read!(".env")
