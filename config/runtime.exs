@@ -26,7 +26,7 @@ config :starbridge,
 
   discord_channels: env!("DISCORD_CHANNELS", :string),
   discord_status: env!("DISCORD_STATUS", :string, nil),
-  discord_status_type: env!("DISCORD_STATUS_TYPE", :string, "playing"),
+  discord_status_type: env!("DISCORD_STATUS_TYPE", :atom, :playing),
 
   matrix_address: env!("MATRIX_ADDRESS", :string),
   matrix_rooms: env!("MATRIX_ROOMS", :string),

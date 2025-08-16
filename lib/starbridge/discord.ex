@@ -1,10 +1,11 @@
 defmodule Starbridge.Discord do
   @behaviour Nostrum.Consumer
 
-  use GenServer
-
-  alias Starbridge.{Env, Server}
+  alias Starbridge.Server
+  import Starbridge.Env
   require Starbridge.Logger, as: Logger
+
+  use GenServer
 
   def start_link(client) do
     GenServer.start_link(__MODULE__, client, name: __MODULE__)
@@ -45,45 +46,37 @@ defmodule Starbridge.Discord do
 
     Server.register(:discord, Starbridge.Discord)
 
-    discord_status = Env.env(:discord_status)
+    discord_status = env(:discord_status)
 
     if !is_nil(discord_status) do
-      status_type_var = Env.env(:discord_status_type)
-
-      status_type =
-        case Starbridge.Util.status_type(status_type_var) do
-          :error -> 0
-          n -> n
-        end
+      status_type = Starbridge.Util.status_type(env(:discord_status_type))
 
       Nostrum.Api.Self.update_status(:online, discord_status, status_type)
       Logger.debug("Using discord status \"#{discord_status}\"")
     end
   end
 
-  def handle_event({:MESSAGE_CREATE, msg, _}) do
-    if !msg.author.bot do
-      channels =
-        Env.env(:discord_channels)
-        |> String.split(",")
-        |> Enum.map(fn s -> String.trim(s) |> String.to_integer() end)
+  def handle_event({:MESSAGE_CREATE, msg, _}) when not msg.author.bot do
+    channels =
+      env(:discord_channels)
+      |> String.split(",")
+      |> Enum.map(fn s -> String.trim(s) |> String.to_integer() end)
 
-      if channels |> Enum.member?(msg.channel_id) do
-        {:ok, channel} = Nostrum.Api.Channel.get(msg.channel_id)
-        {:ok, guild} = Nostrum.Api.Guild.get(msg.guild_id)
+    if channels |> Enum.member?(msg.channel_id) do
+      {:ok, channel} = Nostrum.Api.Channel.get(msg.channel_id)
+      {:ok, guild} = Nostrum.Api.Guild.get(msg.guild_id)
 
-        Logger.debug(
-          "<#{msg.author.username}##{msg.author.discriminator} in ##{channel.name} @ #{guild.name}> #{msg.content}"
-        )
+      Logger.debug(
+        "<#{msg.author.username}##{msg.author.discriminator} in ##{channel.name} @ #{guild.name}> #{msg.content}"
+      )
 
-        Server.send_message(
-          :discord,
-          guild.name,
-          {"#" <> channel.name, channel.id |> Integer.to_string()},
-          msg.content,
-          msg.author.username
-        )
-      end
+      Server.send_message(
+        :discord,
+        guild.name,
+        {"#" <> channel.name, channel.id |> Integer.to_string()},
+        msg.content,
+        msg.author.username
+      )
     end
   end
 
