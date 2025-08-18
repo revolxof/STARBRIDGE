@@ -37,7 +37,7 @@ defmodule Starbridge.Logger do
 
   defmacro warn(message) do
     quote do
-      Starbridge.Logger.log(:warn, Starbridge.Logger.provider, unquote(message))
+      Starbridge.Logger.log(:warning, Starbridge.Logger.provider, unquote(message))
     end
   end
 
