@@ -1,8 +1,10 @@
 defmodule Starbridge.Discord do
   @behaviour Nostrum.Consumer
 
-  alias Starbridge.Server
-  import Starbridge.Env
+  alias Starbridge.Structure.Channel
+  alias Starbridge.Structure.Message
+  alias Starbridge.Structure
+  import Starbridge.{Env, Structure, Util}
   require Starbridge.Logger, as: Logger
 
   use GenServer
@@ -18,8 +20,8 @@ defmodule Starbridge.Discord do
   end
 
   @impl true
-  def handle_cast({:send_message, {target_channel, content}}, client) do
-    Nostrum.Api.Message.create(target_channel |> String.to_integer(), content)
+  def handle_cast({:send_message, {channel, content}}, client) do
+    Nostrum.Api.Message.create(channel.id |> String.to_integer(), content)
 
     {:noreply, client}
   end
@@ -44,7 +46,23 @@ defmodule Starbridge.Discord do
       "Logged in as #{client.user.username}##{client.user.discriminator} (#{client.user.id})"
     )
 
-    Server.register(:discord, Starbridge.Discord)
+    GenServer.cast(
+      Starbridge.Server,
+      {:register_client, %Structure.Client{platform: :discord, server: __MODULE__}}
+    )
+
+    env(:recasts)
+    |> get_channels(:discord)
+    |> Enum.map(fn channel ->
+      with {:ok, ch} <- Nostrum.Api.Channel.get(channel.id |> String.to_integer) do
+        GenServer.cast(
+          Starbridge.Server,
+          {:register_channel,
+           channel
+           |> Channel.with_name(ch.name)}
+        )
+      end
+    end)
 
     discord_status = env(:discord_status)
 
@@ -56,13 +74,10 @@ defmodule Starbridge.Discord do
     end
   end
 
-  def handle_event({:MESSAGE_CREATE, msg, _}) when not msg.author.bot do
-    channels =
-      env(:discord_channels)
-      |> String.split(",")
-      |> Enum.map(fn s -> String.trim(s) |> String.to_integer() end)
+  def handle_event({:MESSAGE_CREATE, msg, _}) when is_nil(msg.author.bot) or not msg.author.bot do
+    r_channel = Starbridge.Util.get_channel(env(:recasts), msg.channel_id, :discord)
 
-    if channels |> Enum.member?(msg.channel_id) do
+    if !is_nil(r_channel) do
       {:ok, channel} = Nostrum.Api.Channel.get(msg.channel_id)
       {:ok, guild} = Nostrum.Api.Guild.get(msg.guild_id)
 
@@ -70,13 +85,13 @@ defmodule Starbridge.Discord do
         "<#{msg.author.username}##{msg.author.discriminator} in ##{channel.name} @ #{guild.name}> #{msg.content}"
       )
 
-      Server.send_message(
-        :discord,
-        guild.name,
-        {"#" <> channel.name, channel.id |> Integer.to_string()},
-        msg.content,
-        msg.author.username
-      )
+      message =
+        Message.with_content(msg.content)
+        |> Message.with_nickname(msg.author.username)
+        |> Message.with_server(guild.name)
+        |> Message.with_channel(r_channel, true)
+
+      GenServer.cast(Starbridge.Server, {:recast_message, message})
     end
   end
 

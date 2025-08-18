@@ -1,5 +1,6 @@
 defmodule Starbridge.Matrix do
-  alias Starbridge.Server
+  alias Starbridge.Structure
+  alias Starbridge.Structure.Message
   import Starbridge.Env
   require Starbridge.Logger, as: Logger
 
@@ -7,6 +8,13 @@ defmodule Starbridge.Matrix do
 
   defmodule State do
     defstruct address: nil, client: nil, rooms: [], sync_completed: false
+
+    @type t :: %__MODULE__{
+            address: String.t(),
+            client: any(),
+            rooms: [],
+            sync_completed: boolean()
+          }
   end
 
   def start_link(_) do
@@ -25,7 +33,13 @@ defmodule Starbridge.Matrix do
       )
 
     client = Polyjuice.Client.get_client(pid)
-    Server.register(:matrix, __MODULE__)
+
+    GenServer.cast(
+      Starbridge.Server,
+      {:register_client, %Structure.Client{platform: :matrix, server: __MODULE__}}
+    )
+
+    # Server.register(:matrix, __MODULE__)
 
     {:ok,
      %State{
@@ -37,18 +51,24 @@ defmodule Starbridge.Matrix do
   end
 
   defp join_rooms(client) do
-    env(:matrix_rooms)
-    |> String.split(",")
-    |> Enum.map(fn r ->
-      ret = Polyjuice.Client.Room.join(client, r, [env(:matrix_address)])
+    env(:recasts)
+    |> Starbridge.Util.get_channels(:matrix)
+    |> Enum.map(fn channel ->
+      ret = Polyjuice.Client.Room.join(client, channel.id, [env(:matrix_address)])
 
       case ret do
         {:ok, room_id} ->
           Logger.debug("Joined #{room_id}.")
+
+          GenServer.cast(
+            Starbridge.Server,
+            {:register_channel, channel |> Structure.Channel.with_name(room_id)}
+          )
+
           room_id
 
         _ ->
-          Logger.error("Failed to join #{r}: #{inspect(ret)}")
+          Logger.error("Failed to join #{channel.id}: #{inspect(ret)}")
       end
     end)
   end
@@ -61,11 +81,20 @@ defmodule Starbridge.Matrix do
   @impl true
   def handle_info({:polyjuice_client, :message, {channel_id, msg}}, state)
       when state.sync_completed do
-    if Enum.member?(state.rooms, channel_id) do
-      content = msg["content"]["body"]
-      sender = msg["sender"]
-      Logger.debug("Received message from #{sender} in #{channel_id}: #{content}")
-      Server.send_message(:matrix, state.addr, {channel_id, channel_id}, content, sender)
+    content = msg["content"]["body"]
+    sender = msg["sender"]
+    Logger.debug("Received message from #{sender} in #{channel_id}: #{content}")
+
+    r_channel = Starbridge.Util.get_channel(env(:recasts), channel_id, :matrix)
+
+    if !is_nil(r_channel) do
+      message =
+        Message.with_content(content)
+        |> Message.with_nickname(sender)
+        |> Message.with_server(env(:matrix_address))
+        |> Message.with_channel(r_channel, true)
+
+      GenServer.cast(Starbridge.Server, {:recast_message, message})
     end
 
     {:noreply, state}
@@ -77,8 +106,8 @@ defmodule Starbridge.Matrix do
   end
 
   @impl true
-  def handle_cast({:send_message, {target_channel, content}}, state) do
-    Polyjuice.Client.Room.send_message(state.client, target_channel, content)
+  def handle_cast({:send_message, {channel, content}}, state) do
+    Polyjuice.Client.Room.send_message(state.client, channel.id, content)
     {:noreply, state}
   end
 end

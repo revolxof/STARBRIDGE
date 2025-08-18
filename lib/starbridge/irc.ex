@@ -1,6 +1,8 @@
 defmodule Starbridge.IRC do
   import Starbridge.Env
-  alias Starbridge.Server
+
+  alias Starbridge.Structure.Message
+  alias Starbridge.Structure
   require Starbridge.Logger, as: Logger
   use GenServer
 
@@ -10,19 +12,32 @@ defmodule Starbridge.IRC do
 
   @impl true
   def init(_) do
-    {:ok, client} = ExIRC.start_link!
+    {:ok, client} = ExIRC.start_link!()
 
-    ExIRC.Client.add_handler client, self()
-    ExIRC.Client.connect! client, env(:irc_address), env(:irc_port, :int)
+    ExIRC.Client.add_handler(client, self())
+    ExIRC.Client.connect!(client, env(:irc_address), env(:irc_port, :int))
 
-    Server.register(:irc, __MODULE__)
+    GenServer.cast(
+      Starbridge.Server,
+      {:register_client, %Structure.Client{platform: :irc, server: __MODULE__}}
+    )
+
+    # Server.register(:irc, __MODULE__)
+
     {:ok, client}
   end
 
   @impl true
   def handle_info({:connected, _, _}, client) do
     Logger.debug("Connected to IRC server")
-    ExIRC.Client.logon client, env(:irc_password), env(:irc_nickname), env(:irc_username), env(:irc_realname)
+
+    ExIRC.Client.logon(
+      client,
+      env(:irc_password),
+      env(:irc_nickname),
+      env(:irc_username),
+      env(:irc_realname)
+    )
 
     {:noreply, client}
   end
@@ -34,21 +49,41 @@ defmodule Starbridge.IRC do
 
   def handle_info({:received, msg, info, channel}, client) do
     Logger.debug("<#{info.nick}#{channel} @ #{env(:irc_address)}> #{msg}")
-    Server.send_message(:irc, env(:irc_address), {channel, channel}, msg, info.nick)
+
+    r_channel = Starbridge.Util.get_channel(env(:recasts), channel, :irc)
+
+    if !is_nil(r_channel) do
+      message =
+        Message.with_content(msg)
+        |> Message.with_nickname(info.nick)
+        |> Message.with_server(info.host)
+        |> Message.with_channel(r_channel, true)
+
+      GenServer.cast(Starbridge.Server, {:recast_message, message})
+    end
+
+    # Server.send_message(:irc, env(:irc_address), {channel, channel}, msg, info.nick)
     {:noreply, client}
   end
 
   def handle_info(:logged_in, client) do
     Logger.debug("Logged in")
 
-    channels = Starbridge.Util.IRC.parse_channels env(:irc_channels)
-    Enum.map(channels, fn {channel, pass} -> join_channel(client, channel, pass) end)
+    env(:recasts)
+    |> Starbridge.Util.get_channels(:irc)
+    |> Enum.map(fn ch -> join_channel(client, ch) end)
 
     {:noreply, client}
   end
 
   def handle_info({:joined, channel}, client) do
     Logger.debug("Joined channel #{channel}")
+
+    GenServer.cast(
+      Starbridge.Server,
+      {:register_channel, Starbridge.Util.get_channel(env(:recasts), channel, :irc)}
+    )
+
     {:noreply, client}
   end
 
@@ -62,22 +97,35 @@ defmodule Starbridge.IRC do
     {:noreply, client}
   end
 
+  def handle_info({:invited, _, channel_id}, client) do
+    ch = env(:recasts)
+    |> Starbridge.Util.get_channel(channel_id, :irc)
+
+    join_channel(client, ch)
+
+    {:noreply, client}
+  end
+
   def handle_info(_, client) do
     {:noreply, client}
   end
 
   @impl true
-  def handle_cast({:send_message, {target_channel, content}}, client) do
-    send_message(client, target_channel, content)
+  def handle_cast({:send_message, {channel, content}}, client) do
+    send_message(client, channel.id, content)
     {:noreply, client}
   end
 
-  def join_channel(client, name, nil) do
+  def join_channel(client, %Structure.Channel{id: name, password: nil}) do
     ExIRC.Client.join(client, name)
   end
 
-  def join_channel(client, name, pass) do
+  def join_channel(client, %Structure.Channel{id: name, password: pass}) do
     ExIRC.Client.join(client, name, pass)
+  end
+
+  def join_channel(_, nil) do
+    :noop
   end
 
   def send_message(client, channel, content) do
