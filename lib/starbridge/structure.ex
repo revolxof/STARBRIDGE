@@ -23,6 +23,7 @@ defmodule Starbridge.Structure do
     end
 
     def with_platform(channel \\ %Channel{}, platform)
+
     def with_platform(%Channel{} = channel, platform) when is_binary(platform) do
       %{channel | platform: platform |> String.to_atom()}
     end
@@ -31,16 +32,30 @@ defmodule Starbridge.Structure do
       %{channel | platform: platform}
     end
 
-    def register(%Channel{} = channel \\ %Channel{}) do
+    def register(%Channel{} = channel) do
       %{channel | registered: true}
     end
 
-    def display_name(%Channel{} = channel \\ %Channel{}) do
+    def display_name(%Channel{} = channel) do
       if !is_nil(channel.name) do
         channel.name
       else
         channel.id
       end
+    end
+
+    def merge(%Channel{} = channel, %Channel{} = other \\ %Channel{}) do
+      if channel.id !== other.id || channel.platform !== other.platform do
+        throw "Tried to merge on incompatible channels."
+      end
+      Map.merge(channel, other, fn _, v1, v2 ->
+        case [v1, v2] do
+          [nil, nil] -> nil
+          [v1, nil] -> v1
+          [nil, v2] -> v2
+          [_, v2] -> v2
+        end
+      end)
     end
   end
 
