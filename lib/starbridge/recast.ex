@@ -1,7 +1,9 @@
 defmodule Starbridge.Recast do
   alias Starbridge.Structure.Channel
 
-  def parse_recast(input) do
+  @cfg_splitter ~r/(?<!\\):/
+
+  def parse(input) do
     input
     |> String.trim()
     |> String.split(~r/(\n|\r\n)/)
@@ -9,9 +11,16 @@ defmodule Starbridge.Recast do
       {lhs, arrow, rhs} =
         parse_one_recast(i)
 
+      interned =
+        get_or_intern(lhs.id, lhs)
+        |> get_or_intern(rhs.id, rhs)
+
+      l = interned |> Map.get(lhs.id)
+      r = interned |> Map.get(rhs.id)
+
       case arrow do
-        :unidirectional -> [{lhs, rhs}]
-        :bidirectional -> [{lhs, rhs}, {rhs, lhs}]
+        :unidirectional -> [{l, r}]
+        :bidirectional -> [{l, r}, {r, l}]
       end
     end)
     |> Enum.uniq()
@@ -54,7 +63,7 @@ defmodule Starbridge.Recast do
       )
     end
 
-    case String.trim_trailing(channel, "]") |> String.split(":", parts: 3) do
+    case String.trim_trailing(channel, "]") |> String.split(@cfg_splitter, parts: 3) do
       [id, "", ""] ->
         Channel.with_id(id)
 
@@ -71,5 +80,26 @@ defmodule Starbridge.Recast do
 
   def parse_channel(channel) when is_binary(channel) do
     Channel.with_id(channel)
+  end
+
+  def get_or_intern(map \\ %{}, id, %Channel{} = new) do
+    if !Map.has_key?(map, id) do
+      Map.put(map, id, new)
+    else
+      {_, out} =
+        map
+        |> Map.get_and_update!(id, fn old ->
+          channel =
+            if old.platform !== new.platform do
+              old
+            else
+              Channel.merge(old, new)
+            end
+
+          {old, channel}
+        end)
+
+      out
+    end
   end
 end
