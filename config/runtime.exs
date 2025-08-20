@@ -34,4 +34,4 @@ config :starbridge,
 
   recasts:
     File.read!(env!("RECAST_PATH", :string, ".recast"))
-    |> Starbridge.Recast.parse_recast()
+    |> Starbridge.Recast.parse()
