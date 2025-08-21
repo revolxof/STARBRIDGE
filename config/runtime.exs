@@ -13,9 +13,9 @@ config :nostrum,
 config :starbridge,
   recast_path: env!("RECAST_PATH", :string, ".recast"),
   display: env!("DISPLAY_STRING", :string, "<$author $channel @ $server> $content"),
-  irc_enabled: env!("IRC_ENABLED", :string, "false"),
-  discord_enabled: env!("DISCORD_ENABLED", :string, "false"),
-  matrix_enabled: env!("MATRIX_ENABLED", :string, "false"),
+  irc_enabled: env!("IRC_ENABLED", :boolean, false),
+  discord_enabled: env!("DISCORD_ENABLED", :boolean, false),
+  matrix_enabled: env!("MATRIX_ENABLED", :boolean, false),
 
   irc_address: env!("IRC_ADDRESS", :string),
   # complains when nil, error in ExIRC

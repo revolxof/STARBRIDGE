@@ -1,10 +1,14 @@
-defmodule Starbridge.IRC do
+defmodule Starbridge.Adapters.IRC do
   import Starbridge.Env
 
   alias Starbridge.Structure.Message
   alias Starbridge.Structure
   require Starbridge.Logger, as: Logger
   use GenServer
+
+  def enabled() do
+    env(:irc_enabled)
+  end
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
@@ -98,8 +102,9 @@ defmodule Starbridge.IRC do
   end
 
   def handle_info({:invited, _, channel_id}, client) do
-    ch = env(:recasts)
-    |> Starbridge.Util.get_channel(channel_id, :irc)
+    ch =
+      env(:recasts)
+      |> Starbridge.Util.get_channel(channel_id, :irc)
 
     join_channel(client, ch)
 

@@ -1,4 +1,4 @@
-defmodule Starbridge.Matrix do
+defmodule Starbridge.Adapters.Matrix do
   alias Starbridge.Structure
   alias Starbridge.Structure.Message
   import Starbridge.Env
@@ -6,19 +6,12 @@ defmodule Starbridge.Matrix do
 
   use GenServer
 
-  defmodule State do
-    defstruct address: nil, client: nil, rooms: [], sync_completed: false
-
-    @type t :: %__MODULE__{
-            address: String.t(),
-            client: any(),
-            rooms: [],
-            sync_completed: boolean()
-          }
+  def enabled() do
+    env(:matrix_enabled)
   end
 
   def start_link(_) do
-    GenServer.start_link(__MODULE__, %State{}, name: __MODULE__)
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
   @impl true
@@ -39,13 +32,13 @@ defmodule Starbridge.Matrix do
       {:register_client, %Structure.Client{platform: :matrix, server: __MODULE__}}
     )
 
+    join_rooms(client)
+
     # Server.register(:matrix, __MODULE__)
 
     {:ok,
-     %State{
-       address: env(:matrix_address),
+     %{
        client: client,
-       rooms: join_rooms(client),
        sync_completed: false
      }}
   end

@@ -1,4 +1,4 @@
-defmodule Starbridge.Discord do
+defmodule Starbridge.Adapters.Discord do
   @behaviour Nostrum.Consumer
 
   alias Starbridge.Structure.Channel
@@ -8,6 +8,10 @@ defmodule Starbridge.Discord do
   require Starbridge.Logger, as: Logger
 
   use GenServer
+
+  def enabled() do
+    env(:discord_enabled)
+  end
 
   def start_link(client) do
     GenServer.start_link(__MODULE__, client, name: __MODULE__)

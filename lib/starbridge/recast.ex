@@ -3,6 +3,10 @@ defmodule Starbridge.Recast do
 
   @cfg_splitter ~r/(?<!\\):/
 
+  def parse("") do
+    %{}
+  end
+
   def parse(input) do
     input
     |> String.trim()

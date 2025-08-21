@@ -1,6 +1,5 @@
 defmodule Starbridge.Application do
   use Application
-  import Starbridge.Env
 
   @impl true
   def start(_ty, args) do
@@ -13,18 +12,21 @@ defmodule Starbridge.Application do
       :dbg.p(:all, :c)
     end
 
-    client_modules = [
-      {env(:discord_enabled, :boolean), Starbridge.Discord},
-      {env(:irc_enabled, :boolean), Starbridge.IRC},
-      {env(:matrix_enabled, :boolean), Starbridge.Matrix}
-    ]
-
-    children =
-      Enum.filter(client_modules, fn {enabled, _child} -> enabled end)
-      |> Enum.map(fn {_enabled, child} -> child end)
+    client_modules =
+      :code.all_available()
+      |> Enum.map(fn x -> elem(x, 0) |> to_string end)
+      |> Enum.filter(&String.starts_with?(&1, "Elixir.Starbridge.Adapters"))
+      |> Enum.flat_map(fn mod ->
+        m = String.to_atom(mod)
+        if apply(m, :enabled, []) do
+          [m]
+        else
+          []
+        end
+      end)
 
     opts = [strategy: :one_for_one, name: Starbridge.Supervisor]
 
-    Supervisor.start_link([Starbridge.Server | children], opts)
+    Supervisor.start_link([Starbridge.Server | client_modules], opts)
   end
 end
