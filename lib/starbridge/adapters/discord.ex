@@ -47,7 +47,6 @@ defmodule Starbridge.Adapters.Discord do
 
   @impl true
   def handle_cast({:send_message, {channel, content}}, client) do
-    Logger.debug("waow")
     Nostrum.Api.Message.create(channel.id |> String.to_integer(), content)
 
     {:noreply, client}

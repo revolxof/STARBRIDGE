@@ -39,8 +39,6 @@ defmodule Starbridge.Adapters.Matrix do
 
     join_rooms(client)
 
-    # Server.register(:matrix, __MODULE__)
-
     {:ok,
      %{
        client: client,
