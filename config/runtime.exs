@@ -4,11 +4,7 @@ import Dotenvy
 source!([".env", System.get_env()])
 
 config :nostrum,
-  token: env!("DISCORD_TOKEN", :string),
-  gateway_intents: [
-    :guild_messages,
-    :message_content
-  ]
+  ffmpeg: false
 
 config :starbridge,
   recast_path: env!("RECAST_PATH", :string, ".recast"),
@@ -27,6 +23,7 @@ config :starbridge,
 
   discord_status: env!("DISCORD_STATUS", :string, nil),
   discord_status_type: env!("DISCORD_STATUS_TYPE", :atom, :playing),
+  discord_token: env!("DISCORD_TOKEN", :string),
 
   matrix_address: env!("MATRIX_ADDRESS", :string),
   matrix_token: env!("MATRIX_TOKEN", :string),

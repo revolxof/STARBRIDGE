@@ -1,30 +1,53 @@
 defmodule Starbridge.Adapters.Discord do
+
   @behaviour Nostrum.Consumer
 
   alias Starbridge.Structure.Channel
   alias Starbridge.Structure.Message
   alias Starbridge.Structure
-  import Starbridge.{Env, Structure, Util}
+  alias Starbridge.Util
+
+  import Starbridge.Env
   require Starbridge.Logger, as: Logger
 
-  use GenServer
+  use Starbridge.Adapter
 
+  @impl true
   def enabled() do
     env(:discord_enabled)
   end
 
-  def start_link(client) do
-    GenServer.start_link(__MODULE__, client, name: __MODULE__)
+  @impl true
+  def state() do
+    %{
+      consumer: __MODULE__,
+      wrapped_token: fn -> env(:discord_token) end,
+      intents: [
+        :guild_messages,
+        :message_content
+      ]
+    }
   end
 
   @impl true
+  def child() do
+    Nostrum.Bot
+  end
+
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
+  end
+
+  use GenServer
+
+  @impl true
   def init(client) do
-    Nostrum.ConsumerGroup.join()
     {:ok, client}
   end
 
   @impl true
   def handle_cast({:send_message, {channel, content}}, client) do
+    Logger.debug("waow")
     Nostrum.Api.Message.create(channel.id |> String.to_integer(), content)
 
     {:noreply, client}
@@ -56,9 +79,9 @@ defmodule Starbridge.Adapters.Discord do
     )
 
     env(:recasts)
-    |> get_channels(:discord)
+    |> Util.get_channels(:discord)
     |> Enum.map(fn channel ->
-      with {:ok, ch} <- Nostrum.Api.Channel.get(channel.id |> String.to_integer) do
+      with {:ok, ch} <- Nostrum.Api.Channel.get(channel.id |> String.to_integer()) do
         GenServer.cast(
           Starbridge.Server,
           {:register_channel,
@@ -71,15 +94,13 @@ defmodule Starbridge.Adapters.Discord do
     discord_status = env(:discord_status)
 
     if !is_nil(discord_status) do
-      status_type = Starbridge.Util.status_type(env(:discord_status_type))
-
-      Nostrum.Api.Self.update_status(:online, discord_status, status_type)
+      Nostrum.Api.Self.update_status(:online, {env(:discord_status_type), env(:discord_status)})
       Logger.debug("Using discord status \"#{discord_status}\"")
     end
   end
 
   def handle_event({:MESSAGE_CREATE, msg, _}) when is_nil(msg.author.bot) or not msg.author.bot do
-    r_channel = Starbridge.Util.get_channel(env(:recasts), msg.channel_id, :discord)
+    r_channel = Util.get_channel(env(:recasts), msg.channel_id, :discord)
 
     if !is_nil(r_channel) do
       {:ok, channel} = Nostrum.Api.Channel.get(msg.channel_id)
@@ -99,7 +120,5 @@ defmodule Starbridge.Adapters.Discord do
     end
   end
 
-  def handle_event(_) do
-    :noop
-  end
+  def handle_event(_), do: :ok
 end

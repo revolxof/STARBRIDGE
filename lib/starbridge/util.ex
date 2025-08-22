@@ -9,11 +9,6 @@ defmodule Starbridge.Util do
     |> String.replace("$server", server)
   end
 
-  def status_type(:playing), do: 0
-  def status_type(:streaming), do: 1
-  def status_type(:listening), do: 2
-  def status_type(:watching), do: 3
-
   def get_channels(recasts, platform) do
     get_channels(recasts)
     |> Enum.filter(fn c -> c.platform === platform end)

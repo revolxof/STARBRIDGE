@@ -19,7 +19,13 @@ defmodule Starbridge.Application do
       |> Enum.flat_map(fn mod ->
         m = String.to_atom(mod)
         if apply(m, :enabled, []) do
-          [m]
+          child = apply(m, :child, [])
+          cfg = apply(m, :state, [])
+          if child !== m do
+            [{child, cfg}, m]
+          else
+            [{m, cfg}]
+          end
         else
           []
         end

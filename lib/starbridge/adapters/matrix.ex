@@ -1,11 +1,14 @@
 defmodule Starbridge.Adapters.Matrix do
+  use Starbridge.Adapter
+
   alias Starbridge.Structure
   alias Starbridge.Structure.Message
+  alias Starbridge.Util
+
   import Starbridge.Env
   require Starbridge.Logger, as: Logger
 
-  use GenServer
-
+  @impl true
   def enabled() do
     env(:matrix_enabled)
   end
@@ -13,6 +16,8 @@ defmodule Starbridge.Adapters.Matrix do
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
+
+  use GenServer
 
   @impl true
   def init(_) do
@@ -45,7 +50,7 @@ defmodule Starbridge.Adapters.Matrix do
 
   defp join_rooms(client) do
     env(:recasts)
-    |> Starbridge.Util.get_channels(:matrix)
+    |> Util.get_channels(:matrix)
     |> Enum.map(fn channel ->
       ret = Polyjuice.Client.Room.join(client, channel.id, [env(:matrix_address)])
 
@@ -78,7 +83,7 @@ defmodule Starbridge.Adapters.Matrix do
     sender = msg["sender"]
     Logger.debug("Received message from #{sender} in #{channel_id}: #{content}")
 
-    r_channel = Starbridge.Util.get_channel(env(:recasts), channel_id, :matrix)
+    r_channel = Util.get_channel(env(:recasts), channel_id, :matrix)
 
     if !is_nil(r_channel) do
       message =

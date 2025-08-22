@@ -1,18 +1,24 @@
 defmodule Starbridge.Adapters.IRC do
-  import Starbridge.Env
+  use Starbridge.Adapter
 
-  alias Starbridge.Structure.Message
   alias Starbridge.Structure
-  require Starbridge.Logger, as: Logger
-  use GenServer
+  alias Starbridge.Structure.Message
+  alias Starbridge.Util
 
+  import Starbridge.Env
+  require Starbridge.Logger, as: Logger
+
+  @impl true
   def enabled() do
     env(:irc_enabled)
   end
 
+
   def start_link(_) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
+
+  use GenServer
 
   @impl true
   def init(_) do
@@ -25,8 +31,6 @@ defmodule Starbridge.Adapters.IRC do
       Starbridge.Server,
       {:register_client, %Structure.Client{platform: :irc, server: __MODULE__}}
     )
-
-    # Server.register(:irc, __MODULE__)
 
     {:ok, client}
   end
@@ -54,7 +58,7 @@ defmodule Starbridge.Adapters.IRC do
   def handle_info({:received, msg, info, channel}, client) do
     Logger.debug("<#{info.nick}#{channel} @ #{env(:irc_address)}> #{msg}")
 
-    r_channel = Starbridge.Util.get_channel(env(:recasts), channel, :irc)
+    r_channel = Util.get_channel(env(:recasts), channel, :irc)
 
     if !is_nil(r_channel) do
       message =
@@ -74,7 +78,7 @@ defmodule Starbridge.Adapters.IRC do
     Logger.debug("Logged in")
 
     env(:recasts)
-    |> Starbridge.Util.get_channels(:irc)
+    |> Util.get_channels(:irc)
     |> Enum.map(fn ch -> join_channel(client, ch) end)
 
     {:noreply, client}
@@ -85,7 +89,7 @@ defmodule Starbridge.Adapters.IRC do
 
     GenServer.cast(
       Starbridge.Server,
-      {:register_channel, Starbridge.Util.get_channel(env(:recasts), channel, :irc)}
+      {:register_channel, Util.get_channel(env(:recasts), channel, :irc)}
     )
 
     {:noreply, client}
@@ -104,7 +108,7 @@ defmodule Starbridge.Adapters.IRC do
   def handle_info({:invited, _, channel_id}, client) do
     ch =
       env(:recasts)
-      |> Starbridge.Util.get_channel(channel_id, :irc)
+      |> Util.get_channel(channel_id, :irc)
 
     join_channel(client, ch)
 

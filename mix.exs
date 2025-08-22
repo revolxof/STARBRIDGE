@@ -29,12 +29,8 @@ defmodule Starbridge.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    run_discord =
-      File.read!(".env")
-      |> String.contains?("DISCORD_ENABLED=true")
-
     [
-      {:nostrum, "~> 0.10.4", runtime: run_discord},
+      {:nostrum, github: "Kraigie/nostrum", ref: "c95d702e476513253a0eff3910fa88fb52e91602"},
       {:exirc, "~> 2.0.0"},
       {:dotenvy, "~> 1.1.0"},
       {:polyjuice_client, "~> 0.4.4"}
